@@ -485,6 +485,26 @@
       text-overflow: ellipsis;
     }
 
+    .feedback-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .feedback-list p {
+      margin: 0;
+      padding: 10px;
+      border: 1px solid #edf1f6;
+      border-radius: 6px;
+      background: white;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .feedback-list b {
+      color: #18212f;
+    }
+
     .empty {
       min-height: 420px;
       display: grid;
@@ -647,7 +667,7 @@
 
           <section class="panel">
             <div class="panel-head">
-              <h2>欄位摘要</h2>
+              <h2 id="summaryTitle">欄位摘要</h2>
             </div>
             <div class="summary-list" id="summaryList"></div>
           </section>
@@ -707,9 +727,12 @@
       xSelect: document.querySelector("#xSelect"),
       ySelect: document.querySelector("#ySelect"),
       aggSelect: document.querySelector("#aggSelect"),
+      chartControls: document.querySelector(".chart-controls"),
+      chartTabs: document.querySelector(".tabs"),
       kpis: document.querySelector("#kpis"),
       reviewSummary: document.querySelector("#reviewSummary"),
       reviewSummaryPanel: document.querySelector("#reviewSummaryPanel"),
+      summaryTitle: document.querySelector("#summaryTitle"),
       summaryList: document.querySelector("#summaryList"),
       tableWrap: document.querySelector("#tableWrap"),
       rowMeta: document.querySelector("#rowMeta"),
@@ -1185,11 +1208,18 @@
 
     function updateAll() {
       applySearch();
+      updateChartUi();
       renderKpis();
       renderReviewSummary();
       renderSummary();
       renderTable();
       drawChart();
+    }
+
+    function updateChartUi() {
+      const ratingMode = hasRatingColumns();
+      els.chartControls.style.display = ratingMode ? "none" : "grid";
+      els.chartTabs.style.display = ratingMode ? "none" : "inline-flex";
     }
 
     function applySearch() {
@@ -1214,6 +1244,17 @@
     function renderKpis() {
       if (!state.rows.length) {
         els.kpis.innerHTML = emptyKpis();
+        return;
+      }
+      if (hasRatingColumns()) {
+        const ratings = countRatings(state.filtered);
+        const yoy = exceedComparison(state.filtered);
+        els.kpis.innerHTML = [
+          metric("Exceed 比率", percent(ratings.exceeds, ratings.total), `${formatNumber(ratings.exceeds)} / ${formatNumber(ratings.total)} ratings`),
+          metric("Achieved", percent(ratings.achieved, ratings.total), `${formatNumber(ratings.achieved)} ratings`),
+          metric("Expected More", percent(ratings.expectedMore, ratings.total), `${formatNumber(ratings.expectedMore)} ratings`),
+          metric("YoY Exceed 比率", yoy.value, yoy.hint)
+        ].join("");
         return;
       }
       const numeric = state.columns.filter(column => state.types[column] === "number");
@@ -1243,28 +1284,26 @@
       const rows = state.filtered;
       const scoring = rows.filter(row => row.row_type === "scoring_feedback");
       const opportunities = rows.filter(row => ["growth_opportunity", "improvement_opportunity", "constructive_feedback"].includes(row.row_type));
-      const outstanding = rows.filter(row => row.row_type === "outstanding_performance" && row.person);
       const ratings = countRatings(scoring);
-      const topTeams = topCounts(rows, "review_team", 6);
+      const exceedDimensions = exceedByDimension(scoring);
+      const topExceedDepartments = exceedByDepartment(scoring, 5);
       const topCategories = topCounts(rows.filter(row => row.category), "category", 6);
-      const topPeople = topCounts(outstanding, "person", 6);
       const themes = keywordThemes(opportunities);
 
       els.reviewSummary.innerHTML = [
         insightBlock("Executive Snapshot", [
           `${rows.length} records across ${new Set(rows.map(row => row.review_team).filter(Boolean)).size} review teams`,
-          `${scoring.length} scoring feedback rows, ${opportunities.length} opportunity rows`,
-          `${outstanding.length} outstanding performance mentions`
+          `${scoring.length} scoring feedback rows, ${opportunities.length} opportunity rows`
         ]),
+        insightBlock("Exceed By Dimension", exceedDimensions.map(item => `${item.label}: ${item.exceeds} / ${item.total} (${percent(item.exceeds, item.total)})`)),
+        insightBlock("Top 5 Exceed Departments", topExceedDepartments.map((item, index) => `${index + 1}. ${item.label}: ${item.exceeds} / ${item.total} (${percent(item.exceeds, item.total)})`)),
         insightBlock("Rating Mix", [
           `Exceeds: ${ratings.exceeds}`,
           `Achieved: ${ratings.achieved}`,
-          `Other / blank: ${ratings.other}`
+          `Expected More: ${ratings.expectedMore}`
         ]),
-        insightBlock("Top Review Teams", topTeams.map(item => `${item.label}: ${item.count}`)),
         insightBlock("Top Categories", topCategories.map(item => `${item.label}: ${item.count}`)),
-        insightBlock("Opportunity Themes", themes.map(item => `${item.label}: ${item.count}`)),
-        insightBlock("Outstanding People", topPeople.map(item => `${item.label}: ${item.count}`))
+        insightBlock("Opportunity Themes", themes.map(item => `${item.label}: ${item.count}`))
       ].join("");
     }
 
@@ -1281,11 +1320,135 @@
         row.innovation_rating,
         row.exec_results_rating
       ]).map(value => String(value || "").toLowerCase());
+      const exceeds = values.filter(value => value.includes("exceed")).length;
+      const achieved = values.filter(value => value.includes("achiev")).length;
+      const expectedMore = values.filter(value => value.includes("expected more") || value.includes("expect more") || value.includes("below")).length;
       return {
-        exceeds: values.filter(value => value.includes("exceed")).length,
-        achieved: values.filter(value => value.includes("achiev")).length,
-        other: values.filter(value => value && !value.includes("exceed") && !value.includes("achiev")).length
+        exceeds,
+        achieved,
+        expectedMore,
+        total: exceeds + achieved + expectedMore,
+        other: values.filter(value => value && !value.includes("exceed") && !value.includes("achiev") && !value.includes("expected more") && !value.includes("expect more") && !value.includes("below") && value !== "/" && value !== "-" && value !== "n.a.").length
       };
+    }
+
+    function exceedByDimension(rows) {
+      const dimensions = [
+        ["Executive", "exec_results_rating"],
+        ["Teamwork", "teamwork_rating"],
+        ["Innovation", "innovation_rating"]
+      ];
+      return dimensions.map(([label, column]) => {
+        const values = rows.map(row => String(row[column] || "").toLowerCase()).filter(Boolean);
+        return {
+          label,
+          exceeds: values.filter(value => value.includes("exceed")).length,
+          total: values.filter(value => isKnownRating(value)).length
+        };
+      }).sort((a, b) => b.exceeds - a.exceeds || b.total - a.total);
+    }
+
+    function exceedByDepartment(rows, limit = 5) {
+      const departments = new Map();
+      rows.forEach(row => {
+        const label = String(row.review_team || "未分類部門").trim();
+        if (!departments.has(label)) {
+          departments.set(label, { label, exceeds: 0, total: 0 });
+        }
+        const record = departments.get(label);
+        ["teamwork_rating", "innovation_rating", "exec_results_rating"].forEach(column => {
+          const value = String(row[column] || "").toLowerCase();
+          if (!isKnownRating(value)) return;
+          record.total += 1;
+          if (value.includes("exceed")) record.exceeds += 1;
+        });
+      });
+      return [...departments.values()]
+        .filter(item => item.total > 0)
+        .sort((a, b) => b.exceeds - a.exceeds || (b.exceeds / b.total) - (a.exceeds / a.total) || a.label.localeCompare(b.label))
+        .slice(0, limit);
+    }
+
+    function isKnownRating(value) {
+      return value.includes("exceed")
+        || value.includes("achiev")
+        || value.includes("expected more")
+        || value.includes("expect more")
+        || value.includes("below");
+    }
+
+    function exceedComparison(rows) {
+      const periods = groupRowsByPeriod(rows);
+      if (periods.length < 2) {
+        return {
+          value: "-",
+          hint: "需要同時載入今年與去年 Raw Data"
+        };
+      }
+      const current = periods[periods.length - 1];
+      const previous = periods[periods.length - 2];
+      const currentRatings = countRatings(current.rows);
+      const previousRatings = countRatings(previous.rows);
+      if (!currentRatings.total || !previousRatings.total) {
+        return {
+          value: "-",
+          hint: "今年或去年沒有可辨識 rating"
+        };
+      }
+      const currentRate = currentRatings.exceeds / currentRatings.total;
+      const previousRate = previousRatings.exceeds / previousRatings.total;
+      const diff = currentRate - previousRate;
+      const arrow = diff >= 0 ? "↑" : "↓";
+      const sign = diff >= 0 ? "+" : "";
+      return {
+        value: `${arrow} ${sign}${(diff * 100).toFixed(1)} pts`,
+        hint: `${current.label}: ${percent(currentRatings.exceeds, currentRatings.total)} / ${previous.label}: ${percent(previousRatings.exceeds, previousRatings.total)}`
+      };
+    }
+
+    function groupRowsByPeriod(rows) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const period = inferPeriod(row);
+        if (!period) return;
+        if (!groups.has(period.key)) {
+          groups.set(period.key, { ...period, rows: [] });
+        }
+        groups.get(period.key).rows.push(row);
+      });
+      return [...groups.values()].sort((a, b) => a.order - b.order);
+    }
+
+    function inferPeriod(row) {
+      const source = [
+        row.year,
+        row.season,
+        row.period,
+        row.review_period,
+        row.review_cycle,
+        row.source_file
+      ].filter(Boolean).join(" ");
+      const yearMatch = source.match(/20\d{2}/);
+      if (!yearMatch) return null;
+      const year = Number(yearMatch[0]);
+      const seasonText = source.toLowerCase();
+      const season = seasonText.includes("spring") ? "Spring" : seasonText.includes("fall") ? "Fall" : "";
+      const seasonOrder = season === "Spring" ? 1 : season === "Fall" ? 2 : 0;
+      const label = season ? `${year} ${season}` : String(year);
+      return {
+        key: `${year}-${seasonOrder}`,
+        label,
+        order: year * 10 + seasonOrder
+      };
+    }
+
+    function hasRatingColumns() {
+      return ["teamwork_rating", "innovation_rating", "exec_results_rating"].some(column => state.columns.includes(column));
+    }
+
+    function percent(value, total) {
+      if (!total) return "0%";
+      return `${((value / total) * 100).toFixed(1)}%`;
     }
 
     function topCounts(rows, column, limit = 5) {
@@ -1333,9 +1496,16 @@
 
     function renderSummary() {
       if (!state.rows.length) {
+        els.summaryTitle.textContent = "欄位摘要";
         els.summaryList.innerHTML = `<div class="empty"><div><strong>沒有資料</strong><span>匯入 CSV、Excel 或 PPTX 後會出現欄位摘要</span></div></div>`;
         return;
       }
+      if (state.columns.includes("cm_comments")) {
+        els.summaryTitle.textContent = "CM Feedback 精選";
+        renderCmFeedbackHighlights();
+        return;
+      }
+      els.summaryTitle.textContent = "欄位摘要";
       els.summaryList.innerHTML = state.columns.map(column => {
         const values = state.filtered.map(row => row[column]).filter(value => value !== "");
         const unique = new Set(values).size;
@@ -1362,6 +1532,73 @@
           ["次數", formatNumber(top.count)]
         ]);
       }).join("");
+    }
+
+    function renderCmFeedbackHighlights() {
+      const groups = new Map();
+      state.filtered.forEach(row => {
+        const department = majorDepartment(row.review_team || row.category || "");
+        const feedback = cleanText(row.cm_comments || row.fx_actions || "");
+        if (!department || !feedback || feedback.length < 24) return;
+        if (!groups.has(department)) groups.set(department, []);
+        groups.get(department).push({
+          feedback,
+          category: cleanText(row.category || row.row_type || ""),
+          slide: row.slide || ""
+        });
+      });
+
+      const html = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"].map(department => {
+        const selected = selectFeedbackHighlights(groups.get(department) || [], 3);
+        if (!selected.length) return "";
+        return `<article class="summary-item">
+          <strong>${escapeHtml(department)}<span class="pill">Top 3</span></strong>
+          <div class="feedback-list">
+            ${selected.map(item => `<p><b>${escapeHtml(item.category || "Feedback")}</b>${item.slide ? ` · slide ${escapeHtml(item.slide)}` : ""}<br>${escapeHtml(item.feedback)}</p>`).join("")}
+          </div>
+        </article>`;
+      }).filter(Boolean).join("");
+
+      els.summaryList.innerHTML = html || `<div class="empty"><div><strong>沒有可用的 CM Feedback</strong><span>目前篩選結果沒有足夠的 CM feedback 文字</span></div></div>`;
+    }
+
+    function selectFeedbackHighlights(items, limit) {
+      const seen = new Set();
+      return items
+        .map(item => ({ ...item, score: feedbackScore(item.feedback) }))
+        .sort((a, b) => b.score - a.score || b.feedback.length - a.feedback.length)
+        .filter(item => {
+          const key = item.feedback.toLowerCase().slice(0, 80);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, limit)
+        .map(item => ({
+          ...item,
+          feedback: item.feedback.length > 260 ? `${item.feedback.slice(0, 257)}...` : item.feedback
+        }));
+    }
+
+    function feedbackScore(text) {
+      const value = text.toLowerCase();
+      const keywords = [
+        "improve",
+        "optimize",
+        "proactive",
+        "support",
+        "tracking",
+        "communication",
+        "efficiency",
+        "action",
+        "process",
+        "training",
+        "sop",
+        "data",
+        "fa",
+        "material"
+      ];
+      return keywords.reduce((score, keyword) => score + (value.includes(keyword) ? 1 : 0), 0);
     }
 
     function summaryItem(column, type, rows) {
@@ -1407,7 +1644,8 @@
     function aggregateRows(xKey, yKey, mode) {
       const groups = new Map();
       state.filtered.forEach(row => {
-        const key = row[xKey] || "(空白)";
+        const key = chartGroupKey(row, xKey);
+        if (!key) return;
         const value = toNumber(row[yKey]);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(Number.isFinite(value) ? value : 1);
@@ -1419,7 +1657,32 @@
         if (mode === "min") value = Math.min(...values);
         if (mode === "max") value = Math.max(...values);
         return { label, value };
-      }).slice(0, 40);
+      }).sort((a, b) => majorDepartmentOrder(a.label) - majorDepartmentOrder(b.label) || b.value - a.value).slice(0, 40);
+    }
+
+    function chartGroupKey(row, xKey) {
+      if (state.columns.includes("review_team") && xKey === "review_team") {
+        return majorDepartment(row.review_team || row.category || "");
+      }
+      return row[xKey] || "(空白)";
+    }
+
+    function majorDepartment(value) {
+      const text = String(value || "").toLowerCase();
+      if (!text) return "";
+      if (/\bepm\b|build management|material management|shipping allocations|bpo/.test(text)) return "EPM";
+      if (/kpd|packaging|package/.test(text)) return "KPD";
+      if (/dqe|iqc|rim|rfa|white glove/.test(text)) return "DQE";
+      if (/\bpd\b|fixture|display|camera|module|haptics|mechanical|motion|als/.test(text)) return "PD";
+      if (/wireless sw|\bsw\b|software|rfsw/.test(text)) return "SW";
+      if (/\bee\b|eerf|rf|antenna|cellular|coex|hwte|inductive|wipas|wifi|nfc|bbhw|soc|smt|test station|ota/.test(text)) return "EERF";
+      return "";
+    }
+
+    function majorDepartmentOrder(label) {
+      const order = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"];
+      const index = order.indexOf(label);
+      return index >= 0 ? index : order.length;
     }
 
     function drawChart() {
@@ -1435,14 +1698,125 @@
         return;
       }
 
+      if (hasRatingColumns()) {
+        const data = departmentRatingChartData(state.filtered);
+        if (!data.length) {
+          drawCentered(ctx, width, height, "沒有可辨識的 rating 資料");
+          return;
+        }
+        drawDepartmentRatingBars(ctx, width, height, data);
+        return;
+      }
+
       if (state.chartType === "scatter") {
         drawScatter(ctx, width, height);
         return;
       }
 
       const data = aggregateRows(els.xSelect.value, els.ySelect.value, els.aggSelect.value);
+      if (!data.length) {
+        drawCentered(ctx, width, height, "沒有符合大部門分類的資料");
+        return;
+      }
       if (state.chartType === "line") drawLine(ctx, width, height, data);
       else drawBar(ctx, width, height, data);
+    }
+
+    function departmentRatingChartData(rows) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const department = majorDepartment(row.review_team || row.category || "");
+        if (!department) return;
+        if (!groups.has(department)) {
+          groups.set(department, { label: department, exceeds: 0, achieved: 0, expectedMore: 0, total: 0 });
+        }
+        const group = groups.get(department);
+        ["teamwork_rating", "innovation_rating", "exec_results_rating"].forEach(column => {
+          const value = String(row[column] || "").toLowerCase();
+          if (!isKnownRating(value)) return;
+          group.total += 1;
+          if (value.includes("exceed")) group.exceeds += 1;
+          else if (value.includes("achiev")) group.achieved += 1;
+          else if (value.includes("expected more") || value.includes("expect more") || value.includes("below")) group.expectedMore += 1;
+        });
+      });
+      return [...groups.values()]
+        .filter(group => group.total > 0)
+        .sort((a, b) => majorDepartmentOrder(a.label) - majorDepartmentOrder(b.label));
+    }
+
+    function drawDepartmentRatingBars(ctx, width, height, data) {
+      const pad = { left: 128, right: 128, top: 42, bottom: 54 };
+      const chartW = width - pad.left - pad.right;
+      const rowGap = 18;
+      const barH = Math.min(46, Math.max(28, (height - pad.top - pad.bottom - rowGap * (data.length - 1)) / data.length));
+      const colors = { exceeds: "#0f766e", achieved: "#2563eb", expectedMore: "#c2410c" };
+
+      ctx.strokeStyle = "#d9e0ea";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, pad.top - 16);
+      ctx.lineTo(pad.left, height - pad.bottom + 18);
+      ctx.lineTo(width - pad.right, height - pad.bottom + 18);
+      ctx.stroke();
+
+      drawLegend(ctx, width - pad.right - 430, 18, [
+        ["Exceeds", colors.exceeds],
+        ["Achieved", colors.achieved],
+        ["Expected More", colors.expectedMore]
+      ]);
+
+      data.forEach((item, index) => {
+        const y = pad.top + index * (barH + rowGap);
+        let x = pad.left;
+        const segments = [
+          ["exceeds", item.exceeds],
+          ["achieved", item.achieved],
+          ["expectedMore", item.expectedMore]
+        ];
+
+        ctx.fillStyle = "#18212f";
+        ctx.font = "bold 20px Inter, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.label, pad.left - 16, y + barH / 2);
+
+        segments.forEach(([key, count]) => {
+          const segmentW = chartW * (count / item.total);
+          if (segmentW <= 0) return;
+          ctx.fillStyle = colors[key];
+          ctx.fillRect(x, y, segmentW, barH);
+          const label = `${(count / item.total * 100).toFixed(0)}%`;
+          if (segmentW > 58) {
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 17px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, x + segmentW / 2, y + barH / 2);
+          }
+          x += segmentW;
+        });
+
+        ctx.fillStyle = "#667085";
+        ctx.font = "16px Inter, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${item.total} ratings`, pad.left + chartW + 14, y + barH / 2);
+      });
+    }
+
+    function drawLegend(ctx, x, y, items) {
+      ctx.font = "16px Inter, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      let cursor = Math.max(80, x);
+      items.forEach(([label, color]) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(cursor, y, 16, 16);
+        ctx.fillStyle = "#475467";
+        ctx.fillText(label, cursor + 22, y + 8);
+        cursor += ctx.measureText(label).width + 52;
+      });
     }
 
     function chartFrame(ctx, width, height) {
