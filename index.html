@@ -1,0 +1,1614 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NPI IDL Review Summary</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #18212f;
+      --muted: #667085;
+      --line: #d8dee8;
+      --soft: #f5f7fb;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --accent-2: #c2410c;
+      --accent-3: #2563eb;
+      --warn: #a16207;
+      --shadow: 0 14px 36px rgba(24, 33, 47, 0.09);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #eef2f6;
+      color: var(--ink);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 292px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: #14202b;
+      color: #f7fafc;
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 4px 2px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #13a39a;
+      color: white;
+      font-weight: 800;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      display: block;
+      color: #a8b3c1;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 10px;
+    }
+
+    .control-group label {
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .file-box {
+      position: relative;
+      min-height: 104px;
+      border: 1px dashed rgba(255, 255, 255, 0.35);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 16px;
+      color: #d6dee8;
+    }
+
+    .file-box input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-box b {
+      display: block;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      resize: vertical;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      padding: 12px;
+      outline: none;
+    }
+
+    textarea::placeholder {
+      color: #98a7b8;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn {
+      height: 40px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 750;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      background: #14b8a6;
+      color: #062421;
+    }
+
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+    }
+
+    .small-note {
+      color: #a8b3c1;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      min-height: 76px;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 25px;
+      letter-spacing: 0;
+    }
+
+    .dataset-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 146px;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    select,
+    input[type="search"] {
+      height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--ink);
+      padding: 0 10px;
+      outline: none;
+    }
+
+    .content {
+      padding: 24px 28px 34px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 106px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 28px;
+      margin-top: 9px;
+      letter-spacing: 0;
+      word-break: break-word;
+    }
+
+    .metric em {
+      display: block;
+      color: var(--muted);
+      font-style: normal;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .panel-head {
+      min-height: 58px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .tabs {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--soft);
+    }
+
+    .tab {
+      height: 34px;
+      min-width: 86px;
+      padding: 0 12px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .chart-area {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .insights {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .insight-block {
+      border: 1px solid #e6ebf2;
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .insight-block h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .insight-block ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #475467;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .insight-block li + li {
+      margin-top: 6px;
+    }
+
+    .summary-text {
+      color: #475467;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 360px;
+      display: block;
+      border: 1px solid #e5e9f0;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .chart-controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 430px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e7ebf1;
+      padding: 10px 12px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475467;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    tbody tr:hover {
+      background: #f3f8f7;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      max-height: 526px;
+      overflow: auto;
+    }
+
+    .summary-item {
+      border: 1px solid #e6ebf2;
+      border-radius: 8px;
+      padding: 13px;
+      background: #fbfcfe;
+    }
+
+    .summary-item strong {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      background: #e7f7f5;
+      color: #0f766e;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      color: #475467;
+      font-size: 12px;
+    }
+
+    .summary-grid span {
+      padding: 8px;
+      background: white;
+      border: 1px solid #edf1f6;
+      border-radius: 6px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .empty {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 24px;
+    }
+
+    .empty strong {
+      display: block;
+      color: var(--ink);
+      font-size: 20px;
+      margin-bottom: 7px;
+    }
+
+    @media (max-width: 1080px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 16px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .kpis,
+      .insights,
+      .chart-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        justify-content: stretch;
+      }
+
+      .field {
+        min-width: 100%;
+      }
+
+      canvas {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">DA</div>
+        <div>
+          <strong>NPI IDL Review Summary</strong>
+          <span>CSV / Excel / PPT / 貼上表格</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="fileInput">匯入資料</label>
+        <div class="file-box">
+          <input id="fileInput" type="file" accept=".csv,.tsv,.txt,.xls,.xlsx,.pptx,.ppt">
+          <div><b>選擇檔案</b><span>支援 CSV、Excel、PPTX</span></div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="pasteInput">貼上資料</label>
+        <textarea id="pasteInput" placeholder="date,region,sales,cost&#10;2026-01,North,128000,72000"></textarea>
+        <div class="btn-row">
+          <button class="btn primary" id="parseBtn" type="button">載入</button>
+          <button class="btn secondary" id="sampleBtn" type="button">範例</button>
+        </div>
+      </div>
+
+      <p class="small-note" id="statusText">尚未載入資料</p>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="title">NPI IDL Review Summary</h1>
+          <div class="dataset-meta" id="datasetMeta">等待資料匯入</div>
+        </div>
+        <div class="toolbar">
+          <label class="field">
+            <span>搜尋</span>
+            <input id="searchInput" type="search" placeholder="關鍵字">
+          </label>
+          <label class="field">
+            <span>分組欄位</span>
+            <select id="groupSelect"></select>
+          </label>
+          <label class="field">
+            <span>數值欄位</span>
+            <select id="valueSelect"></select>
+          </label>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="kpis" id="kpis"></div>
+
+        <section class="panel" id="reviewSummaryPanel">
+          <div class="panel-head">
+            <h2>Review Summary</h2>
+            <span class="dataset-meta">依目前篩選結果自動彙總</span>
+          </div>
+          <div class="insights" id="reviewSummary"></div>
+        </section>
+
+        <div class="workspace">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>視覺化</h2>
+              <div class="tabs" role="tablist" aria-label="圖表類型">
+                <button class="tab active" data-chart="bar" type="button">長條</button>
+                <button class="tab" data-chart="line" type="button">折線</button>
+                <button class="tab" data-chart="scatter" type="button">散點</button>
+              </div>
+            </div>
+            <div class="chart-area">
+              <div class="chart-controls">
+                <label class="field">
+                  <span>X 軸</span>
+                  <select id="xSelect"></select>
+                </label>
+                <label class="field">
+                  <span>Y 軸</span>
+                  <select id="ySelect"></select>
+                </label>
+                <label class="field">
+                  <span>聚合</span>
+                  <select id="aggSelect">
+                    <option value="sum">總和</option>
+                    <option value="avg">平均</option>
+                    <option value="count">筆數</option>
+                    <option value="min">最小值</option>
+                    <option value="max">最大值</option>
+                  </select>
+                </label>
+              </div>
+              <canvas id="chartCanvas" width="1200" height="520" aria-label="資料圖表"></canvas>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>欄位摘要</h2>
+            </div>
+            <div class="summary-list" id="summaryList"></div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>資料表</h2>
+            <span class="dataset-meta" id="rowMeta">0 筆</span>
+          </div>
+          <div class="table-wrap" id="tableWrap"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
+    const sampleData = `month,region,channel,sales,cost,orders,conversion
+2026-01,North,Online,128000,72000,420,0.084
+2026-01,South,Retail,94000,61000,300,0.061
+2026-01,East,Partner,112000,69000,360,0.073
+2026-02,North,Online,146000,79000,470,0.091
+2026-02,South,Retail,98000,64000,326,0.064
+2026-02,East,Partner,118500,70200,382,0.076
+2026-03,North,Online,171000,88000,530,0.101
+2026-03,South,Retail,106000,67500,342,0.067
+2026-03,East,Partner,124000,73100,401,0.079
+2026-04,North,Online,184000,92000,552,0.106
+2026-04,South,Retail,116000,70400,365,0.071
+2026-04,East,Partner,133000,76600,430,0.082
+2026-05,North,Online,196000,97000,590,0.113
+2026-05,South,Retail,125000,74200,391,0.075
+2026-05,East,Partner,142500,81000,456,0.085`;
+
+    const state = {
+      rows: [],
+      columns: [],
+      types: {},
+      filtered: [],
+      chartType: "bar",
+      sortKey: "",
+      sortDir: 1
+    };
+
+    const els = {
+      fileInput: document.querySelector("#fileInput"),
+      pasteInput: document.querySelector("#pasteInput"),
+      parseBtn: document.querySelector("#parseBtn"),
+      sampleBtn: document.querySelector("#sampleBtn"),
+      statusText: document.querySelector("#statusText"),
+      datasetMeta: document.querySelector("#datasetMeta"),
+      searchInput: document.querySelector("#searchInput"),
+      groupSelect: document.querySelector("#groupSelect"),
+      valueSelect: document.querySelector("#valueSelect"),
+      xSelect: document.querySelector("#xSelect"),
+      ySelect: document.querySelector("#ySelect"),
+      aggSelect: document.querySelector("#aggSelect"),
+      kpis: document.querySelector("#kpis"),
+      reviewSummary: document.querySelector("#reviewSummary"),
+      reviewSummaryPanel: document.querySelector("#reviewSummaryPanel"),
+      summaryList: document.querySelector("#summaryList"),
+      tableWrap: document.querySelector("#tableWrap"),
+      rowMeta: document.querySelector("#rowMeta"),
+      canvas: document.querySelector("#chartCanvas"),
+      tabs: [...document.querySelectorAll(".tab")]
+    };
+
+    function parseDelimited(text) {
+      const clean = text.trim();
+      if (!clean) return { columns: [], rows: [] };
+      const delimiter = detectDelimiter(clean);
+      const lines = clean.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(Boolean);
+      const rows = lines.map(line => parseLine(line, delimiter));
+      const columns = uniqueColumnNames(rows.shift().map((name, index) => name.trim() || `欄位 ${index + 1}`));
+      return {
+        columns,
+        rows: rows.map(values => {
+          const row = {};
+          columns.forEach((column, index) => {
+            row[column] = (values[index] ?? "").trim();
+          });
+          return row;
+        })
+      };
+    }
+
+    function uniqueColumnNames(columns) {
+      const seen = new Map();
+      return columns.map((column, index) => {
+        const base = column || `欄位 ${index + 1}`;
+        const count = seen.get(base) || 0;
+        seen.set(base, count + 1);
+        return count ? `${base}_${count + 1}` : base;
+      });
+    }
+
+    function detectDelimiter(text) {
+      const first = text.split(/\r?\n/)[0] || "";
+      const comma = (first.match(/,/g) || []).length;
+      const tab = (first.match(/\t/g) || []).length;
+      const semi = (first.match(/;/g) || []).length;
+      if (tab > comma && tab >= semi) return "\t";
+      if (semi > comma) return ";";
+      return ",";
+    }
+
+    function parseLine(line, delimiter) {
+      const values = [];
+      let current = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const next = line[i + 1];
+        if (char === '"' && quoted && next === '"') {
+          current += '"';
+          i++;
+        } else if (char === '"') {
+          quoted = !quoted;
+        } else if (char === delimiter && !quoted) {
+          values.push(current);
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      values.push(current);
+      return values;
+    }
+
+    function loadData(text, label = "自訂資料") {
+      loadParsedData(parseDelimited(text), label);
+    }
+
+    function loadParsedData(parsed, label = "自訂資料") {
+      if (!parsed.columns.length || !parsed.rows.length) {
+        els.statusText.textContent = `${label}沒有可分析的資料`;
+        return;
+      }
+      state.columns = parsed.columns;
+      state.rows = parsed.rows;
+      state.types = inferTypes(parsed.columns, parsed.rows);
+      state.filtered = [...state.rows];
+      state.sortKey = "";
+      populateControls();
+      updateAll();
+      els.statusText.textContent = `${label}已載入：${state.rows.length} 筆，${state.columns.length} 欄`;
+    }
+
+    async function loadFile(file) {
+      const name = file.name.toLowerCase();
+      els.statusText.textContent = `正在解析 ${file.name}...`;
+      try {
+        if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+          await loadExcelFile(file);
+        } else if (name.endsWith(".pptx")) {
+          await loadPptxFile(file);
+        } else if (name.endsWith(".ppt")) {
+          els.statusText.textContent = "目前瀏覽器版支援 .pptx；請將 PPT 另存成 .pptx 後再上傳";
+        } else {
+          const text = await file.text();
+          loadData(text, file.name);
+        }
+      } catch (error) {
+        els.statusText.textContent = `解析失敗：${error.message}`;
+      }
+    }
+
+    async function loadExcelFile(file) {
+      if (!window.XLSX) {
+        throw new Error("Excel 解析器尚未載入，請確認網路可連到 CDN 後重新整理");
+      }
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const parsedSheets = workbook.SheetNames.map(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        return { sheetName, parsed: matrixToDataset(matrix) };
+      }).filter(item => item.parsed.rows.length);
+      if (!parsedSheets.length) throw new Error("Excel 裡沒有可讀取的表格資料");
+      const first = parsedSheets[0];
+      loadParsedData(first.parsed, `${file.name} / ${first.sheetName}`);
+    }
+
+    async function loadPptxFile(file) {
+      if (!window.JSZip) {
+        throw new Error("PPTX 解析器尚未載入，請確認網路可連到 CDN 後重新整理");
+      }
+      const buffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(buffer);
+      const slideFiles = Object.keys(zip.files)
+        .filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path))
+        .sort((a, b) => Number(a.match(/slide(\d+)/)[1]) - Number(b.match(/slide(\d+)/)[1]));
+      if (!slideFiles.length) throw new Error("PPTX 裡找不到投影片");
+
+      const tables = [];
+      const slideTextRows = [];
+      const reviewRows = [];
+      let currentReviewTeam = "";
+      for (const path of slideFiles) {
+        const slideNumber = Number(path.match(/slide(\d+)/)[1]);
+        const xml = await zip.files[path].async("text");
+        const doc = new DOMParser().parseFromString(xml, "application/xml");
+        const textItems = textNodes(doc);
+        const slideMeta = extractSlideMeta(textItems, currentReviewTeam);
+        currentReviewTeam = slideMeta.review_team || currentReviewTeam;
+        if (textItems.length) {
+          slideTextRows.push({
+            slide: slideNumber,
+            review_team: slideMeta.review_team || currentReviewTeam,
+            text: textItems.join(" "),
+            word_count: textItems.join(" ").split(/\s+/).filter(Boolean).length,
+            item_count: textItems.length
+          });
+        }
+
+        const tableNodes = [...doc.getElementsByTagNameNS("*", "tbl")];
+        tableNodes.forEach(table => {
+          const rows = [...table.getElementsByTagNameNS("*", "tr")].map(row => {
+            return [...row.getElementsByTagNameNS("*", "tc")]
+              .map(cell => textNodes(cell).join(" ").trim());
+          }).filter(row => row.some(Boolean));
+          if (rows.length) {
+            tables.push({ slideNumber, rows });
+            reviewRows.push(...normalizeIdlReviewTable(rows, {
+              ...slideMeta,
+              review_team: slideMeta.review_team || currentReviewTeam,
+              slide: slideNumber,
+              source_file: file.name
+            }));
+          }
+        });
+      }
+
+      if (reviewRows.length) {
+        loadParsedData(rowsToDataset(reviewRows, [
+          "source_file",
+          "slide",
+          "review_team",
+          "section",
+          "row_type",
+          "category",
+          "person",
+          "teamwork_rating",
+          "innovation_rating",
+          "exec_results_rating",
+          "apple_comments",
+          "cm_comments",
+          "achievement",
+          "areas_doing_well",
+          "areas_to_improve",
+          "fx_actions",
+          "checkpoint",
+          "apple_dri",
+          "cm_dri"
+        ]), `${file.name} / IDL Review 整理資料`);
+        return;
+      }
+
+      if (tables.length) {
+        const bestTable = tables.sort((a, b) => tableScore(b.rows) - tableScore(a.rows))[0];
+        loadParsedData(matrixToDataset(bestTable.rows), `${file.name} / 第 ${bestTable.slideNumber} 張表格`);
+        return;
+      }
+
+      loadParsedData({
+        columns: ["slide", "text", "word_count", "item_count"],
+        rows: slideTextRows
+      }, `${file.name} / 投影片文字`);
+    }
+
+    function normalizeIdlReviewTable(rows, meta) {
+      const header = rows[0].map(cleanText);
+      const headerText = header.join(" ").toLowerCase();
+      const body = rows.slice(1).filter(row => row.some(cell => cleanText(cell)));
+      if (headerText.includes("areas doing well") && headerText.includes("areas to be improved")) {
+        const indexes = findConstructiveFeedbackIndexes(header);
+        return body
+          .filter(row => cleanText(row[indexes.team]))
+          .map(row => ({
+            source_file: meta.source_file,
+            slide: meta.slide,
+            review_team: meta.review_team || "FXGL IDL",
+            section: "Constructive Feedback",
+            row_type: "constructive_feedback",
+            category: cleanText(row[indexes.team]),
+            person: "",
+            teamwork_rating: "",
+            innovation_rating: "",
+            exec_results_rating: "",
+            apple_comments: "",
+            cm_comments: "",
+            achievement: "",
+            areas_doing_well: cleanText(row[indexes.well]),
+            areas_to_improve: cleanText(row[indexes.improve]),
+            fx_actions: cleanText(row[indexes.actions]),
+            checkpoint: cleanText(row[indexes.checkpoint]),
+            apple_dri: meta.apple_dri,
+            cm_dri: meta.cm_dri
+          }));
+      }
+
+      if (headerText.includes("name") && headerText.includes("achievement")) {
+        return body
+          .filter(row => cleanText(row[0]) || cleanText(row[1]))
+          .map(row => ({
+            source_file: meta.source_file,
+            slide: meta.slide,
+            review_team: meta.review_team,
+            section: meta.section || inferSection(meta.slide_text),
+            row_type: /improvement opportunity/i.test(meta.slide_text) ? "improvement_opportunity" : "outstanding_performance",
+            category: "",
+            person: cleanText(row[0]),
+            teamwork_rating: "",
+            innovation_rating: "",
+            exec_results_rating: "",
+            apple_comments: "",
+            cm_comments: cleanText(row[2]),
+            achievement: cleanText(row[1]),
+            areas_doing_well: "",
+            areas_to_improve: "",
+            fx_actions: "",
+            checkpoint: "",
+            apple_dri: meta.apple_dri,
+            cm_dri: meta.cm_dri
+          }));
+      }
+
+      const commentIndexes = findCommentIndexes(header);
+      const dimensionIndexes = findDimensionIndexes(header, commentIndexes);
+      if (!dimensionIndexes.length && commentIndexes.apple === undefined && commentIndexes.cm === undefined && commentIndexes.comments === undefined) return [];
+
+      return body
+        .filter(row => cleanText(row[0]))
+        .map(row => {
+          const dimensionCells = Object.fromEntries(dimensionIndexes.map(item => [item.key, cleanText(row[item.index])]));
+          return {
+            source_file: meta.source_file,
+            slide: meta.slide,
+            review_team: meta.review_team,
+            section: meta.section || inferSection(meta.slide_text),
+            row_type: hasRating(row, dimensionIndexes) ? "scoring_feedback" : "growth_opportunity",
+            category: cleanCategory(row[0]),
+            person: "",
+            teamwork_rating: dimensionCells.teamwork || "",
+            innovation_rating: dimensionCells.innovation || "",
+            exec_results_rating: dimensionCells.exec_results || dimensionCells.results || "",
+            apple_comments: cleanText(row[commentIndexes.apple]) || cleanText(row[commentIndexes.comments]),
+            cm_comments: cleanText(row[commentIndexes.cm]),
+            achievement: "",
+            areas_doing_well: "",
+            areas_to_improve: "",
+            fx_actions: "",
+            checkpoint: "",
+            apple_dri: meta.apple_dri,
+            cm_dri: meta.cm_dri
+          };
+        });
+    }
+
+    function findConstructiveFeedbackIndexes(header) {
+      const find = pattern => {
+        const index = header.findIndex(label => pattern.test(label));
+        return index >= 0 ? index : 0;
+      };
+      return {
+        team: find(/^team$/i),
+        well: find(/areas doing well/i),
+        improve: find(/areas to be improved/i),
+        actions: find(/actions|solutions/i),
+        checkpoint: find(/^cp$/i)
+      };
+    }
+
+    function extractSlideMeta(textItems, fallbackTeam) {
+      const items = textItems.map(cleanText).filter(Boolean);
+      const full = items.join(" ");
+      const reviewIndex = items.findIndex(item => /Eng\.?\s*Performance\s*Review/i.test(item));
+      let reviewTeam = "";
+      if (reviewIndex >= 0) {
+        reviewTeam = items.slice(reviewIndex + 1, reviewIndex + 8)
+          .map(item => item.replace(/^[-|\s]+/, "").trim())
+          .find(item => item && !/^(Scoring|Non Scoring|Apple DRI|CM DRI)/i.test(item)) || "";
+      }
+      const appleDri = (full.match(/Apple\s*DRI\s*:?\s*([^|]+?)(?:\s+CM\s*DRI|\s+Teamwork|\s+Individual|\s+Scoring|\s+Name|$)/i) || [])[1] || "";
+      const cmDri = (full.match(/CM\s*DRI\s*:?\s*([^|]+?)(?:\s+\*?Shout|\s+Teamwork|\s+Individual|\s+Scoring|\s+Non\s*Scoring|\s+Name|\s+Achievement|$)/i) || [])[1] || "";
+      return {
+        review_team: cleanText(reviewTeam || fallbackTeam),
+        section: inferSection(full),
+        apple_dri: cleanText(appleDri),
+        cm_dri: cleanText(cmDri),
+        slide_text: full
+      };
+    }
+
+    function inferSection(text) {
+      if (/Non\s*Scoring/i.test(text)) return "Non Scoring";
+      if (/Individual.+Outstanding/i.test(text)) return "Individual Outstanding";
+      if (/improvement opportunity/i.test(text)) return "Improvement Opportunity";
+      if (/Scoring/i.test(text)) return "Scoring";
+      return "";
+    }
+
+    function findCommentIndexes(header) {
+      const indexes = {};
+      header.forEach((label, index) => {
+        const lower = label.toLowerCase();
+        if (lower.includes("apple") && lower.includes("comment")) indexes.apple = index;
+        else if (lower.includes("cm") && lower.includes("comment")) indexes.cm = index;
+        else if (lower === "comments" || lower.endsWith(" comments")) indexes.comments = index;
+      });
+      return indexes;
+    }
+
+    function findDimensionIndexes(header, commentIndexes) {
+      const commentSet = new Set(Object.values(commentIndexes).filter(index => index !== undefined));
+      return header.map((label, index) => {
+        const lower = label.toLowerCase();
+        if (index === 0 || commentSet.has(index)) return null;
+        if (lower.includes("teamwork")) return { key: "teamwork", index };
+        if (lower.includes("innovation")) return { key: "innovation", index };
+        if (lower.includes("exec") || lower.includes("result")) return { key: lower.includes("exec") ? "exec_results" : "results", index };
+        return null;
+      }).filter(Boolean);
+    }
+
+    function hasRating(row, dimensions) {
+      return dimensions.some(item => /exceed|achiev|below|meet/i.test(cleanText(row[item.index])));
+    }
+
+    function cleanCategory(value) {
+      return cleanText(value)
+        .replace(/\s*\(Ex:.*?\)\s*/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function cleanText(value) {
+      return String(value ?? "")
+        .replace(/\s+/g, " ")
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .trim();
+    }
+
+    function rowsToDataset(rows, preferredColumns = []) {
+      const columnSet = new Set(preferredColumns);
+      rows.forEach(row => Object.keys(row).forEach(key => columnSet.add(key)));
+      const columns = [...columnSet];
+      return {
+        columns,
+        rows: rows.map(row => {
+          const normalized = {};
+          columns.forEach(column => {
+            normalized[column] = row[column] ?? "";
+          });
+          return normalized;
+        })
+      };
+    }
+
+    function matrixToDataset(matrix) {
+      const rows = matrix
+        .map(row => row.map(value => String(value ?? "").trim()))
+        .filter(row => row.some(Boolean));
+      if (!rows.length) return { columns: [], rows: [] };
+      const columns = uniqueColumnNames(rows.shift().map((value, index) => value || `欄位 ${index + 1}`));
+      return {
+        columns,
+        rows: rows.map(values => {
+          const row = {};
+          columns.forEach((column, index) => {
+            row[column] = values[index] ?? "";
+          });
+          return row;
+        })
+      };
+    }
+
+    function textNodes(node) {
+      return [...node.getElementsByTagNameNS("*", "t")]
+        .map(item => item.textContent.trim())
+        .filter(Boolean);
+    }
+
+    function tableScore(rows) {
+      return rows.length * Math.max(...rows.map(row => row.length), 1);
+    }
+
+    function inferTypes(columns, rows) {
+      const types = {};
+      columns.forEach(column => {
+        const values = rows.map(row => row[column]).filter(value => value !== "");
+        const numeric = values.filter(value => Number.isFinite(toNumber(value))).length;
+        types[column] = values.length && numeric / values.length >= 0.8 ? "number" : "text";
+      });
+      return types;
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return NaN;
+      return Number(String(value).replace(/[$,%\s]/g, ""));
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(value)) return "-";
+      return new Intl.NumberFormat("zh-Hant", { maximumFractionDigits: 2 }).format(value);
+    }
+
+    function populateControls() {
+      const numeric = state.columns.filter(column => state.types[column] === "number");
+      const firstText = state.columns.find(column => state.types[column] === "text") || state.columns[0] || "";
+      const firstNum = numeric[0] || state.columns[0] || "";
+      const preferredGroup = ["review_team", "category", "row_type", "section"].find(column => state.columns.includes(column)) || firstText;
+
+      fillSelect(els.groupSelect, state.columns, preferredGroup);
+      fillSelect(els.valueSelect, numeric.length ? numeric : state.columns, firstNum);
+      fillSelect(els.xSelect, state.columns, preferredGroup);
+      fillSelect(els.ySelect, numeric.length ? numeric : state.columns, firstNum);
+      if (state.columns.includes("row_type")) {
+        els.aggSelect.value = "count";
+      }
+    }
+
+    function fillSelect(select, options, selected) {
+      select.innerHTML = "";
+      options.forEach(option => {
+        const node = document.createElement("option");
+        node.value = option;
+        node.textContent = option;
+        node.selected = option === selected;
+        select.appendChild(node);
+      });
+    }
+
+    function updateAll() {
+      applySearch();
+      renderKpis();
+      renderReviewSummary();
+      renderSummary();
+      renderTable();
+      drawChart();
+    }
+
+    function applySearch() {
+      const term = els.searchInput.value.trim().toLowerCase();
+      state.filtered = term
+        ? state.rows.filter(row => state.columns.some(column => String(row[column]).toLowerCase().includes(term)))
+        : [...state.rows];
+      if (state.sortKey) {
+        state.filtered.sort((a, b) => compareRows(a, b, state.sortKey) * state.sortDir);
+      }
+      els.datasetMeta.textContent = state.rows.length
+        ? `${state.filtered.length} / ${state.rows.length} 筆資料，${state.columns.length} 個欄位`
+        : "等待資料匯入";
+      els.rowMeta.textContent = `${state.filtered.length} 筆`;
+    }
+
+    function compareRows(a, b, key) {
+      if (state.types[key] === "number") return toNumber(a[key]) - toNumber(b[key]);
+      return String(a[key]).localeCompare(String(b[key]), "zh-Hant");
+    }
+
+    function renderKpis() {
+      if (!state.rows.length) {
+        els.kpis.innerHTML = emptyKpis();
+        return;
+      }
+      const numeric = state.columns.filter(column => state.types[column] === "number");
+      const selected = els.valueSelect.value || numeric[0];
+      const values = state.filtered.map(row => toNumber(row[selected])).filter(Number.isFinite);
+      const sum = values.reduce((total, value) => total + value, 0);
+      const avg = values.length ? sum / values.length : 0;
+      const max = values.length ? Math.max(...values) : 0;
+      const missing = state.filtered.reduce((total, row) => {
+        return total + state.columns.filter(column => row[column] === "").length;
+      }, 0);
+
+      els.kpis.innerHTML = [
+        metric("總筆數", formatNumber(state.filtered.length), "目前篩選結果"),
+        metric(`${selected} 總和`, formatNumber(sum), "加總"),
+        metric(`${selected} 平均`, formatNumber(avg), "平均值"),
+        metric("最大值 / 缺漏", `${formatNumber(max)} / ${formatNumber(missing)}`, "欄位品質")
+      ].join("");
+    }
+
+    function renderReviewSummary() {
+      const required = ["row_type", "review_team"];
+      const hasReviewData = required.every(column => state.columns.includes(column));
+      els.reviewSummaryPanel.style.display = hasReviewData && state.rows.length ? "block" : "none";
+      if (!hasReviewData || !state.rows.length) return;
+
+      const rows = state.filtered;
+      const scoring = rows.filter(row => row.row_type === "scoring_feedback");
+      const opportunities = rows.filter(row => ["growth_opportunity", "improvement_opportunity", "constructive_feedback"].includes(row.row_type));
+      const outstanding = rows.filter(row => row.row_type === "outstanding_performance" && row.person);
+      const ratings = countRatings(scoring);
+      const topTeams = topCounts(rows, "review_team", 6);
+      const topCategories = topCounts(rows.filter(row => row.category), "category", 6);
+      const topPeople = topCounts(outstanding, "person", 6);
+      const themes = keywordThemes(opportunities);
+
+      els.reviewSummary.innerHTML = [
+        insightBlock("Executive Snapshot", [
+          `${rows.length} records across ${new Set(rows.map(row => row.review_team).filter(Boolean)).size} review teams`,
+          `${scoring.length} scoring feedback rows, ${opportunities.length} opportunity rows`,
+          `${outstanding.length} outstanding performance mentions`
+        ]),
+        insightBlock("Rating Mix", [
+          `Exceeds: ${ratings.exceeds}`,
+          `Achieved: ${ratings.achieved}`,
+          `Other / blank: ${ratings.other}`
+        ]),
+        insightBlock("Top Review Teams", topTeams.map(item => `${item.label}: ${item.count}`)),
+        insightBlock("Top Categories", topCategories.map(item => `${item.label}: ${item.count}`)),
+        insightBlock("Opportunity Themes", themes.map(item => `${item.label}: ${item.count}`)),
+        insightBlock("Outstanding People", topPeople.map(item => `${item.label}: ${item.count}`))
+      ].join("");
+    }
+
+    function insightBlock(title, items) {
+      const content = items.length
+        ? `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : `<p class="summary-text">No matching records in current filter.</p>`;
+      return `<article class="insight-block"><h3>${escapeHtml(title)}</h3>${content}</article>`;
+    }
+
+    function countRatings(rows) {
+      const values = rows.flatMap(row => [
+        row.teamwork_rating,
+        row.innovation_rating,
+        row.exec_results_rating
+      ]).map(value => String(value || "").toLowerCase());
+      return {
+        exceeds: values.filter(value => value.includes("exceed")).length,
+        achieved: values.filter(value => value.includes("achiev")).length,
+        other: values.filter(value => value && !value.includes("exceed") && !value.includes("achiev")).length
+      };
+    }
+
+    function topCounts(rows, column, limit = 5) {
+      const counts = new Map();
+      rows.forEach(row => {
+        const value = String(row[column] || "").trim();
+        if (!value) return;
+        counts.set(value, (counts.get(value) || 0) + 1);
+      });
+      return [...counts.entries()]
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+        .slice(0, limit);
+    }
+
+    function keywordThemes(rows) {
+      const themes = [
+        ["communication", /communicat|alignment|feedback|follow up|proactive/i],
+        ["material / CTB", /material|ctb|vendor|allocation|shortage|parts/i],
+        ["cost / BPO", /cost|budget|bpo|invoice|po|actual/i],
+        ["data / report", /data|report|tracker|upload|radar|analysis/i],
+        ["FA / repair", /fa|repair|failure|rework|issue/i],
+        ["build execution", /build|execution|schedule|line|throughput/i],
+        ["process / SOP", /process|sop|standard|training|discipline/i],
+        ["automation", /automat|script|dashboard|tool/i]
+      ];
+      return themes.map(([label, pattern]) => ({
+        label,
+        count: rows.filter(row => pattern.test(`${row.apple_comments || ""} ${row.cm_comments || ""} ${row.achievement || ""} ${row.areas_doing_well || ""} ${row.areas_to_improve || ""} ${row.fx_actions || ""}`)).length
+      })).filter(item => item.count > 0).sort((a, b) => b.count - a.count).slice(0, 6);
+    }
+
+    function emptyKpis() {
+      return [
+        metric("總筆數", "0", "尚未載入"),
+        metric("數值欄位", "0", "尚未載入"),
+        metric("文字欄位", "0", "尚未載入"),
+        metric("缺漏值", "0", "尚未載入")
+      ].join("");
+    }
+
+    function metric(label, value, hint) {
+      return `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><em>${escapeHtml(hint)}</em></article>`;
+    }
+
+    function renderSummary() {
+      if (!state.rows.length) {
+        els.summaryList.innerHTML = `<div class="empty"><div><strong>沒有資料</strong><span>匯入 CSV、Excel 或 PPTX 後會出現欄位摘要</span></div></div>`;
+        return;
+      }
+      els.summaryList.innerHTML = state.columns.map(column => {
+        const values = state.filtered.map(row => row[column]).filter(value => value !== "");
+        const unique = new Set(values).size;
+        const missing = state.filtered.length - values.length;
+        if (state.types[column] === "number") {
+          const nums = values.map(toNumber).filter(Number.isFinite).sort((a, b) => a - b);
+          const sum = nums.reduce((total, value) => total + value, 0);
+          const avg = nums.length ? sum / nums.length : 0;
+          const median = nums.length ? nums[Math.floor(nums.length / 2)] : 0;
+          return summaryItem(column, "數值", [
+            ["平均", formatNumber(avg)],
+            ["中位數", formatNumber(median)],
+            ["最小", formatNumber(nums[0])],
+            ["最大", formatNumber(nums[nums.length - 1])],
+            ["唯一值", formatNumber(unique)],
+            ["缺漏", formatNumber(missing)]
+          ]);
+        }
+        const top = topValue(values);
+        return summaryItem(column, "文字", [
+          ["唯一值", formatNumber(unique)],
+          ["缺漏", formatNumber(missing)],
+          ["最常見", top.label || "-"],
+          ["次數", formatNumber(top.count)]
+        ]);
+      }).join("");
+    }
+
+    function summaryItem(column, type, rows) {
+      return `<article class="summary-item">
+        <strong>${escapeHtml(column)}<span class="pill">${type}</span></strong>
+        <div class="summary-grid">
+          ${rows.map(([key, value]) => `<span><b>${escapeHtml(key)}</b><br>${escapeHtml(value)}</span>`).join("")}
+        </div>
+      </article>`;
+    }
+
+    function topValue(values) {
+      const counts = new Map();
+      values.forEach(value => counts.set(value, (counts.get(value) || 0) + 1));
+      return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }))[0] || { label: "", count: 0 };
+    }
+
+    function renderTable() {
+      if (!state.rows.length) {
+        els.tableWrap.innerHTML = `<div class="empty"><div><strong>資料表等待匯入</strong><span>可使用左側範例資料開始</span></div></div>`;
+        return;
+      }
+      const rows = state.filtered.slice(0, 300);
+      els.tableWrap.innerHTML = `<table>
+        <thead><tr>${state.columns.map(column => `<th data-key="${escapeHtml(column)}">${escapeHtml(column)}${sortMark(column)}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(row => `<tr>${state.columns.map(column => `<td>${escapeHtml(row[column])}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>`;
+      els.tableWrap.querySelectorAll("th").forEach(th => {
+        th.addEventListener("click", () => {
+          const key = th.dataset.key;
+          state.sortDir = state.sortKey === key ? state.sortDir * -1 : 1;
+          state.sortKey = key;
+          updateAll();
+        });
+      });
+    }
+
+    function sortMark(column) {
+      if (state.sortKey !== column) return "";
+      return state.sortDir > 0 ? " ↑" : " ↓";
+    }
+
+    function aggregateRows(xKey, yKey, mode) {
+      const groups = new Map();
+      state.filtered.forEach(row => {
+        const key = row[xKey] || "(空白)";
+        const value = toNumber(row[yKey]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(Number.isFinite(value) ? value : 1);
+      });
+      return [...groups.entries()].map(([label, values]) => {
+        let value = values.length;
+        if (mode === "sum") value = values.reduce((total, item) => total + item, 0);
+        if (mode === "avg") value = values.reduce((total, item) => total + item, 0) / values.length;
+        if (mode === "min") value = Math.min(...values);
+        if (mode === "max") value = Math.max(...values);
+        return { label, value };
+      }).slice(0, 40);
+    }
+
+    function drawChart() {
+      const ctx = els.canvas.getContext("2d");
+      const width = els.canvas.width;
+      const height = els.canvas.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      if (!state.rows.length || !state.filtered.length) {
+        drawCentered(ctx, width, height, "沒有可繪製的資料");
+        return;
+      }
+
+      if (state.chartType === "scatter") {
+        drawScatter(ctx, width, height);
+        return;
+      }
+
+      const data = aggregateRows(els.xSelect.value, els.ySelect.value, els.aggSelect.value);
+      if (state.chartType === "line") drawLine(ctx, width, height, data);
+      else drawBar(ctx, width, height, data);
+    }
+
+    function chartFrame(ctx, width, height) {
+      const pad = { left: 74, right: 28, top: 34, bottom: 78 };
+      ctx.strokeStyle = "#d9e0ea";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, pad.top);
+      ctx.lineTo(pad.left, height - pad.bottom);
+      ctx.lineTo(width - pad.right, height - pad.bottom);
+      ctx.stroke();
+      return pad;
+    }
+
+    function drawBar(ctx, width, height, data) {
+      const pad = chartFrame(ctx, width, height);
+      const max = Math.max(...data.map(item => item.value), 1);
+      const chartW = width - pad.left - pad.right;
+      const chartH = height - pad.top - pad.bottom;
+      const gap = 8;
+      const barW = Math.max(8, chartW / data.length - gap);
+      drawYAxis(ctx, pad, chartH, max, width);
+      data.forEach((item, index) => {
+        const x = pad.left + index * (chartW / data.length) + gap / 2;
+        const h = (item.value / max) * chartH;
+        ctx.fillStyle = index % 3 === 0 ? "#0f766e" : index % 3 === 1 ? "#2563eb" : "#c2410c";
+        ctx.fillRect(x, height - pad.bottom - h, barW, h);
+        drawLabel(ctx, item.label, x + barW / 2, height - pad.bottom + 22, chartW / data.length);
+      });
+    }
+
+    function drawLine(ctx, width, height, data) {
+      const pad = chartFrame(ctx, width, height);
+      const max = Math.max(...data.map(item => item.value), 1);
+      const chartW = width - pad.left - pad.right;
+      const chartH = height - pad.top - pad.bottom;
+      drawYAxis(ctx, pad, chartH, max, width);
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      data.forEach((item, index) => {
+        const x = pad.left + (data.length === 1 ? chartW / 2 : index * chartW / (data.length - 1));
+        const y = height - pad.bottom - (item.value / max) * chartH;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      data.forEach((item, index) => {
+        const x = pad.left + (data.length === 1 ? chartW / 2 : index * chartW / (data.length - 1));
+        const y = height - pad.bottom - (item.value / max) * chartH;
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#2563eb";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        drawLabel(ctx, item.label, x, height - pad.bottom + 22, 82);
+      });
+    }
+
+    function drawScatter(ctx, width, height) {
+      const xKey = els.xSelect.value;
+      const yKey = els.ySelect.value;
+      const xs = state.filtered.map(row => toNumber(row[xKey])).filter(Number.isFinite);
+      const ys = state.filtered.map(row => toNumber(row[yKey])).filter(Number.isFinite);
+      if (!xs.length || !ys.length) {
+        drawCentered(ctx, width, height, "散點圖需要 X 與 Y 都是數值欄位");
+        return;
+      }
+      const pad = chartFrame(ctx, width, height);
+      const chartW = width - pad.left - pad.right;
+      const chartH = height - pad.top - pad.bottom;
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      drawYAxis(ctx, pad, chartH, maxY, width);
+      state.filtered.forEach(row => {
+        const xVal = toNumber(row[xKey]);
+        const yVal = toNumber(row[yKey]);
+        if (!Number.isFinite(xVal) || !Number.isFinite(yVal)) return;
+        const x = pad.left + ((xVal - minX) / Math.max(maxX - minX, 1)) * chartW;
+        const y = height - pad.bottom - ((yVal - minY) / Math.max(maxY - minY, 1)) * chartH;
+        ctx.fillStyle = "rgba(15, 118, 110, 0.72)";
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawYAxis(ctx, pad, chartH, max, width) {
+      ctx.fillStyle = "#667085";
+      ctx.font = "22px Inter, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i <= 4; i++) {
+        const value = max * (1 - i / 4);
+        const y = pad.top + chartH * (i / 4);
+        ctx.fillText(formatNumber(value), pad.left - 12, y);
+        ctx.strokeStyle = "#eef1f5";
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawLabel(ctx, text, x, y, maxWidth) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-Math.PI / 7);
+      ctx.fillStyle = "#475467";
+      ctx.font = "18px Inter, sans-serif";
+      ctx.textAlign = "right";
+      const clipped = String(text).length > 16 ? `${String(text).slice(0, 15)}...` : String(text);
+      ctx.fillText(clipped, 0, 0, Math.max(42, maxWidth * 1.5));
+      ctx.restore();
+    }
+
+    function drawCentered(ctx, width, height, text) {
+      ctx.fillStyle = "#667085";
+      ctx.font = "24px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, width / 2, height / 2);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    els.fileInput.addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      loadFile(file);
+    });
+
+    els.parseBtn.addEventListener("click", () => loadData(els.pasteInput.value || sampleData, "貼上資料"));
+    els.sampleBtn.addEventListener("click", () => {
+      els.pasteInput.value = sampleData;
+      loadData(sampleData, "範例資料");
+    });
+    els.searchInput.addEventListener("input", updateAll);
+    [els.groupSelect, els.valueSelect, els.xSelect, els.ySelect, els.aggSelect].forEach(select => {
+      select.addEventListener("change", () => {
+        if (select === els.groupSelect) els.xSelect.value = select.value;
+        if (select === els.valueSelect) els.ySelect.value = select.value;
+        updateAll();
+      });
+    });
+    els.tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        state.chartType = tab.dataset.chart;
+        els.tabs.forEach(item => item.classList.toggle("active", item === tab));
+        drawChart();
+      });
+    });
+
+    loadData(sampleData, "範例資料");
+  </script>
+</body>
+</html>
