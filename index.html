@@ -490,6 +490,13 @@
       gap: 10px;
     }
 
+    .feedback-section-title {
+      color: #18212f;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 6px 2px 0;
+    }
+
     .feedback-list p {
       margin: 0;
       padding: 10px;
@@ -503,6 +510,33 @@
 
     .feedback-list b {
       color: #18212f;
+    }
+
+    .feedback-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #edf1f6;
+      border-radius: 6px;
+      background: white;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .apple-comment {
+      color: #475467;
+    }
+
+    .cm-response {
+      border-left: 3px solid #0f766e;
+      background: #edfdf9;
+      color: #115e59;
+      padding: 8px 10px;
+      border-radius: 4px;
+    }
+
+    .cm-response b {
+      color: #0f766e;
     }
 
     .empty {
@@ -1501,8 +1535,8 @@
         return;
       }
       if (state.columns.includes("cm_comments")) {
-        els.summaryTitle.textContent = "CM Feedback 精選";
-        renderCmFeedbackHighlights();
+        els.summaryTitle.textContent = "Feedback 精選";
+        renderFeedbackHighlights();
         return;
       }
       els.summaryTitle.textContent = "欄位摘要";
@@ -1534,38 +1568,106 @@
       }).join("");
     }
 
-    function renderCmFeedbackHighlights() {
+    function renderFeedbackHighlights() {
+      const appleKeywords = customerKeywords(state.filtered);
+      const appleHtml = feedbackSection(
+        "Apple Comments 精選",
+        "apple_comments",
+        "目前篩選結果沒有足夠的 Apple comments",
+        item => selectFeedbackHighlights(item, 3, appleKeywords)
+      );
+      const cmHtml = feedbackSection(
+        "CM Feedback 精選",
+        "cm_comments",
+        "目前篩選結果沒有足夠的 CM feedback 文字",
+        item => selectFeedbackHighlights(item, 3, feedbackKeywords())
+      );
+      els.summaryList.innerHTML = appleHtml || cmHtml
+        ? `${appleHtml}${cmHtml}`
+        : `<div class="empty"><div><strong>沒有可用的 Feedback</strong><span>目前篩選結果沒有足夠的 Apple 或 CM comments</span></div></div>`;
+    }
+
+    function feedbackSection(title, sourceColumn, emptyText, selector) {
       const groups = new Map();
       state.filtered.forEach(row => {
         const department = majorDepartment(row.review_team || row.category || "");
-        const feedback = cleanText(row.cm_comments || row.fx_actions || "");
+        const fallback = sourceColumn === "cm_comments" ? row.fx_actions : "";
+        const feedback = cleanText(row[sourceColumn] || fallback || "");
         if (!department || !feedback || feedback.length < 24) return;
         if (!groups.has(department)) groups.set(department, []);
         groups.get(department).push({
           feedback,
+          cmResponse: sourceColumn === "apple_comments" ? cmResponseForAppleComment(row, feedback) : "",
           category: cleanText(row.category || row.row_type || ""),
           slide: row.slide || ""
         });
       });
 
-      const html = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"].map(department => {
-        const selected = selectFeedbackHighlights(groups.get(department) || [], 3);
+      const departmentsHtml = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"].map(department => {
+        const selected = selector(groups.get(department) || []);
         if (!selected.length) return "";
         return `<article class="summary-item">
           <strong>${escapeHtml(department)}<span class="pill">Top 3</span></strong>
           <div class="feedback-list">
-            ${selected.map(item => `<p><b>${escapeHtml(item.category || "Feedback")}</b>${item.slide ? ` · slide ${escapeHtml(item.slide)}` : ""}<br>${escapeHtml(item.feedback)}</p>`).join("")}
+            ${selected.map(item => feedbackCard(item, sourceColumn)).join("")}
           </div>
         </article>`;
       }).filter(Boolean).join("");
 
-      els.summaryList.innerHTML = html || `<div class="empty"><div><strong>沒有可用的 CM Feedback</strong><span>目前篩選結果沒有足夠的 CM feedback 文字</span></div></div>`;
+      if (!departmentsHtml) {
+        return `<article class="summary-item"><strong>${escapeHtml(title)}<span class="pill">0</span></strong><p class="summary-text">${escapeHtml(emptyText)}</p></article>`;
+      }
+      return `<div class="feedback-section-title">${escapeHtml(title)}</div>${departmentsHtml}`;
     }
 
-    function selectFeedbackHighlights(items, limit) {
+    function feedbackCard(item, sourceColumn) {
+      const meta = `<b>${escapeHtml(item.category || "Feedback")}</b>${item.slide ? ` · slide ${escapeHtml(item.slide)}` : ""}${item.keywords ? ` · ${escapeHtml(item.keywords)}` : ""}`;
+      if (sourceColumn !== "apple_comments") {
+        return `<p>${meta}<br>${escapeHtml(item.feedback)}</p>`;
+      }
+      return `<div class="feedback-card">
+        <div class="apple-comment">${meta}<br>${escapeHtml(item.feedback)}</div>
+        <div class="cm-response"><b>CM Response</b><br>${escapeHtml(item.cmResponse)}</div>
+      </div>`;
+    }
+
+    function cmResponseForAppleComment(row, appleComment) {
+      const existing = cleanText(row.cm_comments || row.fx_actions || "");
+      if (existing && existing.length > 20) {
+        return existing.length > 260 ? `${existing.slice(0, 257)}...` : existing;
+      }
+      const text = appleComment.toLowerCase();
+      if (/material|ctb|kitting|allocation|parts|shortage/.test(text)) {
+        return "CM will strengthen material CTB governance, align DRI ownership across EPM/warehouse/commodity teams, and use a pre-build checklist to prevent wrong kitting or late shortage escalation.";
+      }
+      if (/fa|repair|failure|root cause|analysis|rework/.test(text)) {
+        return "CM will assign a dedicated FA DRI, prepare hypothesis-driven analysis before meetings, and close each action with owner, due date, and evidence-based next step.";
+      }
+      if (/data|report|tracker|radar|upload|log|summary|doe/.test(text)) {
+        return "CM will standardize the DOE/reporting format, keep a single tracker for status and blockers, and provide clearer data summaries with observations and conclusions.";
+      }
+      if (/communication|alignment|sync|feedback|proactive|follow/.test(text)) {
+        return "CM will improve proactive communication cadence, align internally before replying to Apple, and provide earlier risk callouts with clear owners and next actions.";
+      }
+      if (/resource|manpower|efficiency|training|senior/.test(text)) {
+        return "CM will rebalance resources by priority, assign experienced DRIs for critical builds, and reinforce training so execution quality is consistent across shifts and teams.";
+      }
+      if (/process|sop|audit|standard|quality|checklist/.test(text)) {
+        return "CM will convert this feedback into a standard SOP/checklist, run periodic audits, and review compliance results with Apple during build checkpoints.";
+      }
+      if (/automation|script|tool|dashboard/.test(text)) {
+        return "CM will explore automation opportunities for repeated reporting and tracking work, then pilot the tool with Apple feedback before scaling across teams.";
+      }
+      return "CM acknowledges the feedback and will convert it into trackable actions with clear DRI, due date, checkpoint, and closure evidence for Apple review.";
+    }
+
+    function selectFeedbackHighlights(items, limit, keywords = feedbackKeywords()) {
       const seen = new Set();
       return items
-        .map(item => ({ ...item, score: feedbackScore(item.feedback) }))
+        .map(item => {
+          const matches = matchedKeywords(item.feedback, keywords);
+          return { ...item, score: feedbackScore(item.feedback, keywords), keywords: matches.slice(0, 3).join(", ") };
+        })
         .sort((a, b) => b.score - a.score || b.feedback.length - a.feedback.length)
         .filter(item => {
           const key = item.feedback.toLowerCase().slice(0, 80);
@@ -1580,8 +1682,33 @@
         }));
     }
 
-    function feedbackScore(text) {
+    function feedbackScore(text, keywords = feedbackKeywords()) {
       const value = text.toLowerCase();
+      return keywords.reduce((score, keyword) => score + (value.includes(keyword) ? 1 : 0), 0);
+    }
+
+    function matchedKeywords(text, keywords) {
+      const value = text.toLowerCase();
+      return keywords.filter(keyword => value.includes(keyword));
+    }
+
+    function customerKeywords(rows) {
+      const keywords = feedbackKeywords();
+      const counts = new Map(keywords.map(keyword => [keyword, 0]));
+      rows.forEach(row => {
+        const text = String(row.apple_comments || "").toLowerCase();
+        keywords.forEach(keyword => {
+          if (text.includes(keyword)) counts.set(keyword, counts.get(keyword) + 1);
+        });
+      });
+      const ranked = [...counts.entries()]
+        .filter(([, count]) => count > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([keyword]) => keyword);
+      return ranked.length ? ranked : keywords;
+    }
+
+    function feedbackKeywords() {
       const keywords = [
         "improve",
         "optimize",
@@ -1596,9 +1723,18 @@
         "sop",
         "data",
         "fa",
-        "material"
+        "material",
+        "ctb",
+        "doe",
+        "resource",
+        "alignment",
+        "quality",
+        "issue",
+        "report",
+        "schedule",
+        "tracking"
       ];
-      return keywords.reduce((score, keyword) => score + (value.includes(keyword) ? 1 : 0), 0);
+      return keywords;
     }
 
     function summaryItem(column, type, rows) {
