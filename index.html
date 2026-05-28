@@ -1870,10 +1870,11 @@
         els.tableWrap.innerHTML = `<div class="empty"><div><strong>資料表等待匯入</strong><span>可使用左側範例資料開始</span></div></div>`;
         return;
       }
+      const columns = tableDisplayColumns();
       const rows = state.filtered.slice(0, 300);
       els.tableWrap.innerHTML = `<table>
-        <thead><tr>${state.columns.map(column => `<th data-key="${escapeHtml(column)}">${escapeHtml(column)}${sortMark(column)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map(row => `<tr>${state.columns.map(column => `<td>${escapeHtml(row[column])}</td>`).join("")}</tr>`).join("")}</tbody>
+        <thead><tr>${columns.map(column => `<th data-key="${escapeHtml(column)}">${escapeHtml(column)}${sortMark(column)}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row[column])}</td>`).join("")}</tr>`).join("")}</tbody>
       </table>`;
       els.tableWrap.querySelectorAll("th").forEach(th => {
         th.addEventListener("click", () => {
@@ -1885,18 +1886,34 @@
       });
     }
 
+    function tableDisplayColumns() {
+      const preferred = [
+        "review_team",
+        "section",
+        "row_type",
+        "category",
+        "teamwork_rating",
+        "innovation_rating",
+        "exec_results_rating",
+        "apple_dri"
+      ];
+      const matched = preferred.filter(column => state.columns.includes(column));
+      return matched.length ? matched : state.columns;
+    }
+
     function exportFilteredTable() {
       if (!state.filtered.length) return;
       if (!window.XLSX) {
         alert("Excel 匯出工具尚未載入，請確認網路可連到 CDN 後重新整理。");
         return;
       }
+      const columns = tableDisplayColumns();
       const rows = [
-        state.columns,
-        ...state.filtered.map(row => state.columns.map(column => row[column] ?? ""))
+        columns,
+        ...state.filtered.map(row => columns.map(column => row[column] ?? ""))
       ];
       const sheet = XLSX.utils.aoa_to_sheet(rows);
-      sheet["!cols"] = state.columns.map(column => ({
+      sheet["!cols"] = columns.map(column => ({
         wch: Math.min(Math.max(String(column).length + 4, 12), 36)
       }));
       const workbook = XLSX.utils.book_new();
