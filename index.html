@@ -1383,6 +1383,9 @@
     }
 
     function compareRows(a, b, key) {
+      if (key === "Team") {
+        return tableCellValue(a, key).localeCompare(tableCellValue(b, key), "zh-Hant");
+      }
       if (state.types[key] === "number") return toNumber(a[key]) - toNumber(b[key]);
       return String(a[key]).localeCompare(String(b[key]), "zh-Hant");
     }
@@ -1393,12 +1396,13 @@
         return;
       }
       if (hasRatingColumns()) {
-        const ratings = countRatings(state.filtered);
-        const yoy = exceedComparison(state.filtered);
+        const scoring = scoringRows(state.filtered);
+        const ratings = countRatings(scoring);
+        const yoy = exceedComparison(scoring);
         els.kpis.innerHTML = [
-          metric("Exceed 比率", percent(ratings.exceeds, ratings.total), `${formatNumber(ratings.exceeds)} / ${formatNumber(ratings.total)} ratings`),
-          metric("Achieved", percent(ratings.achieved, ratings.total), `${formatNumber(ratings.achieved)} ratings`),
-          metric("Expected More", percent(ratings.expectedMore, ratings.total), `${formatNumber(ratings.expectedMore)} ratings`),
+          metric("Exceed 比率", percent(ratings.exceeds, ratings.total), `Scoring Section · ${formatNumber(ratings.exceeds)} / ${formatNumber(ratings.total)} ratings`),
+          metric("Achieved", percent(ratings.achieved, ratings.total), `Scoring Section · ${formatNumber(ratings.achieved)} ratings`),
+          metric("Expected More", percent(ratings.expectedMore, ratings.total), `Scoring Section · ${formatNumber(ratings.expectedMore)} ratings`),
           metric("YoY Exceed 比率", yoy.value, yoy.hint)
         ].join("");
         return;
@@ -1428,7 +1432,7 @@
       if (!hasReviewData || !state.rows.length) return;
 
       const rows = state.filtered;
-      const scoring = rows.filter(row => row.row_type === "scoring_feedback");
+      const scoring = scoringRows(rows);
       const opportunities = rows.filter(row => ["growth_opportunity", "improvement_opportunity", "constructive_feedback"].includes(row.row_type));
       const ratings = countRatings(scoring);
       const exceedDimensions = exceedByDimension(scoring);
@@ -1476,6 +1480,14 @@
         total: exceeds + achieved + expectedMore,
         other: values.filter(value => value && !value.includes("exceed") && !value.includes("achiev") && !value.includes("expected more") && !value.includes("expect more") && !value.includes("below") && value !== "/" && value !== "-" && value !== "n.a.").length
       };
+    }
+
+    function scoringRows(rows) {
+      return rows.filter(row => {
+        const section = String(row.section || "").trim().toLowerCase();
+        const rowType = String(row.row_type || "").trim().toLowerCase();
+        return section ? section === "scoring" : rowType === "scoring_feedback";
+      });
     }
 
     function exceedByDimension(rows) {
@@ -1702,7 +1714,7 @@
     function feedbackSection(title, sourceColumn, emptyText, selector) {
       const groups = new Map();
       state.filtered.forEach(row => {
-        const department = majorDepartment(row.review_team || row.category || "");
+        const department = rowDepartment(row);
         const fallback = sourceColumn === "cm_comments" ? row.fx_actions : "";
         const feedback = cleanText(row[sourceColumn] || fallback || "");
         if (!department || !feedback || feedback.length < 24) return;
@@ -1715,7 +1727,7 @@
         });
       });
 
-      const departmentsHtml = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"].map(department => {
+      const departmentsHtml = ["EPM", "PD", "HWTE", "KPD", "DQE", "SW", "RF", "System EE"].map(department => {
         const selected = selector(groups.get(department) || []);
         if (!selected.length) return "";
         return `<article class="summary-item">
@@ -1865,16 +1877,18 @@
     }
 
     function renderTable() {
-      els.exportBtn.disabled = !state.filtered.length;
+      const filteredScoringRows = scoringRows(state.filtered);
+      els.exportBtn.disabled = !filteredScoringRows.length;
       if (!state.rows.length) {
         els.tableWrap.innerHTML = `<div class="empty"><div><strong>資料表等待匯入</strong><span>可使用左側範例資料開始</span></div></div>`;
         return;
       }
       const columns = tableDisplayColumns();
-      const rows = state.filtered.slice(0, 300);
+      const rows = filteredScoringRows;
+      els.rowMeta.textContent = `${filteredScoringRows.length} 筆 Scoring`;
       els.tableWrap.innerHTML = `<table>
         <thead><tr>${columns.map(column => `<th data-key="${escapeHtml(column)}">${escapeHtml(column)}${sortMark(column)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row[column])}</td>`).join("")}</tr>`).join("")}</tbody>
+        <tbody>${rows.map(row => `<tr>${columns.map(column => `<td>${escapeHtml(tableCellValue(row, column))}</td>`).join("")}</tr>`).join("")}</tbody>
       </table>`;
       els.tableWrap.querySelectorAll("th").forEach(th => {
         th.addEventListener("click", () => {
@@ -1889,20 +1903,31 @@
     function tableDisplayColumns() {
       const preferred = [
         "review_team",
+        "Team",
         "section",
         "row_type",
         "category",
         "teamwork_rating",
         "innovation_rating",
-        "exec_results_rating",
-        "apple_dri"
+        "exec_results_rating"
       ];
-      const matched = preferred.filter(column => state.columns.includes(column));
-      return matched.length ? matched : state.columns;
+      const matched = preferred.filter(column => column !== "Team" && state.columns.includes(column));
+      if (!matched.length) return state.columns;
+      const reviewTeamIndex = matched.indexOf("review_team");
+      matched.splice(reviewTeamIndex >= 0 ? reviewTeamIndex + 1 : 0, 0, "Team");
+      return matched;
+    }
+
+    function tableCellValue(row, column) {
+      if (column === "Team") {
+        return rowDepartment(row);
+      }
+      return row[column] ?? "";
     }
 
     function exportFilteredTable() {
-      if (!state.filtered.length) return;
+      const filteredScoringRows = scoringRows(state.filtered);
+      if (!filteredScoringRows.length) return;
       if (!window.XLSX) {
         alert("Excel 匯出工具尚未載入，請確認網路可連到 CDN 後重新整理。");
         return;
@@ -1910,19 +1935,19 @@
       const columns = tableDisplayColumns();
       const rows = [
         columns,
-        ...state.filtered.map(row => columns.map(column => row[column] ?? ""))
+        ...filteredScoringRows.map(row => columns.map(column => tableCellValue(row, column)))
       ];
       const sheet = XLSX.utils.aoa_to_sheet(rows);
       sheet["!cols"] = columns.map(column => ({
         wch: Math.min(Math.max(String(column).length + 4, 12), 36)
       }));
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, sheet, "Raw Data");
-      XLSX.writeFile(workbook, exportFileName());
+      XLSX.utils.book_append_sheet(workbook, sheet, "Scoring Raw Data");
+      XLSX.writeFile(workbook, exportFileName(filteredScoringRows));
     }
 
-    function exportFileName() {
-      const source = state.filtered[0]?.source_file || "npi_idl_review";
+    function exportFileName(rows = state.filtered) {
+      const source = rows[0]?.source_file || "npi_idl_review";
       const base = String(source)
         .replace(/\.[^.]+$/, "")
         .replace(/[\\/:*?"<>|]+/g, "_")
@@ -1957,25 +1982,48 @@
 
     function chartGroupKey(row, xKey) {
       if (state.columns.includes("review_team") && xKey === "review_team") {
-        return majorDepartment(row.review_team || row.category || "");
+        return rowDepartment(row);
       }
       return row[xKey] || "(空白)";
     }
 
-    function majorDepartment(value) {
+    function rowDepartment(row) {
+      const assigned = String(row.Team || row.team || "").trim();
+      const departments = ["EPM", "PD", "HWTE", "KPD", "DQE", "SW", "RF", "System EE"];
+      return departments.includes(assigned)
+        ? assigned
+        : majorDepartment(row.review_team || row.category || "", row.slide, row.source_file);
+    }
+
+    function majorDepartment(value, slide, sourceFile) {
       const text = String(value || "").toLowerCase();
+      const source = String(sourceFile || "").toLowerCase();
+      const slideNumber = Number(slide);
+      if (Number.isFinite(slideNumber) && source.includes("2025 spring fx eng idl review shared deck")) {
+        if (slideNumber <= 28) return "EPM";
+        if (slideNumber <= 38) return "PD";
+        if (slideNumber <= 108) return "HWTE";
+        if (slideNumber <= 163) return "KPD";
+        if (slideNumber <= 177) return "DQE";
+        if (slideNumber <= 194) return "SW";
+        if (slideNumber <= 347) return "RF";
+        return "System EE";
+      }
       if (!text) return "";
-      if (/\bepm\b|build management|material management|shipping allocations|bpo/.test(text)) return "EPM";
-      if (/kpd|packaging|package/.test(text)) return "KPD";
-      if (/dqe|iqc|rim|rfa|white glove/.test(text)) return "DQE";
-      if (/\bpd\b|fixture|display|camera|module|haptics|mechanical|motion|als/.test(text)) return "PD";
-      if (/wireless sw|\bsw\b|software|rfsw/.test(text)) return "SW";
-      if (/\bee\b|eerf|rf|antenna|cellular|coex|hwte|inductive|wipas|wifi|nfc|bbhw|soc|smt|test station|ota/.test(text)) return "EERF";
+      if (/\bepm\b|build management|material management|shipping allocations|logistics|pcc|csr|bpo/.test(text)) return "EPM";
+      if (/kpd|packaging|package|acoustic|sphinx|peridot|depth/.test(text)) return "KPD";
+      if (/dqe|aqa|\bqt\b|iqc|rim|rfa|white glove/.test(text)) return "DQE";
+      if (/\bpd\b|tritium|fixture|display|camera|rcam|strobe|module|haptics|mechanical|motion|touch|als|thermal/.test(text)) return "PD";
+      if (/wireless sw|\bsw\b|software|rfsw|coreos|dcsd|\bdsl\b|glee|\bisp\b|sfd|diags|burnin/.test(text)) return "SW";
+      if (/hwte|test station|ironman|\btdl\b/.test(text)) return "HWTE";
+      if (/system ee|validation ee|fatp ee|mlb ee|offline coex ee|testing ee|als hw|inductive power|motion/.test(text)) return "System EE";
+      if (/\brf|fury|antenna|cellular|coex|emc|desense|wipas|wifi|nfc|bbhw|soc|smt|ota|wsce/.test(text)) return "RF";
+      if (/\bee\b|eerf|io port/.test(text)) return "System EE";
       return "";
     }
 
     function majorDepartmentOrder(label) {
-      const order = ["EPM", "KPD", "SW", "EERF", "DQE", "PD"];
+      const order = ["EPM", "PD", "HWTE", "KPD", "DQE", "SW", "RF", "System EE"];
       const index = order.indexOf(label);
       return index >= 0 ? index : order.length;
     }
@@ -1994,7 +2042,7 @@
       }
 
       if (hasRatingColumns()) {
-        const data = departmentRatingChartData(state.filtered);
+        const data = departmentRatingChartData(scoringRows(state.filtered));
         if (!data.length) {
           drawCentered(ctx, width, height, "沒有可辨識的 rating 資料");
           return;
@@ -2020,7 +2068,7 @@
     function departmentRatingChartData(rows) {
       const groups = new Map();
       rows.forEach(row => {
-        const department = majorDepartment(row.review_team || row.category || "");
+        const department = rowDepartment(row);
         if (!department) return;
         if (!groups.has(department)) {
           groups.set(department, { label: department, exceeds: 0, achieved: 0, expectedMore: 0, total: 0 });
